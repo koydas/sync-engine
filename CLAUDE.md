@@ -1,73 +1,73 @@
 # CLAUDE.md — sync-engine
 
-Conventions du projet pour les sessions Claude Code.
+Project conventions for Claude Code sessions.
 
 ---
 
 ## Architecture
 
-Ce projet suit une architecture hybride REST/webhook documentée dans [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md).
+This project follows a hybrid REST/webhook architecture documented in [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md).
 
-**Avant d'implémenter quoi que ce soit**, lire l'ADR concerné. Si une décision d'implémentation contredit un ADR existant, créer un nouvel ADR plutôt que de modifier silencieusement le code.
+**Before implementing anything**, read the relevant ADR. If an implementation decision contradicts an existing ADR, create a new ADR rather than silently modifying the code.
 
 ---
 
-## Structure des packages
+## Package structure
 
 ```
 src/sync_engine/
-├── webhook/        # Réception, vérification HMAC, mise en queue
-├── reconciliation/ # Boucle REST, calcul des deltas, gap fill
-├── processor/      # Traitement idempotent, déduplication par event_id
-└── store/          # Persistance : last_successful_sync_at, queue d'événements
+├── webhook/        # Reception, HMAC verification, queuing
+├── reconciliation/ # REST loop, delta computation, gap fill
+├── processor/      # Idempotent processing, deduplication by event_id
+└── store/          # Persistence: last_successful_sync_at, event queue
 ```
 
-Chaque package a une responsabilité unique. Ne pas faire traverser la logique de reconciliation dans le webhook handler et vice versa.
+Each package has a single responsibility. Do not let reconciliation logic bleed into the webhook handler and vice versa.
 
 ---
 
-## Invariants — ne jamais violer
+## Invariants — never violate
 
-1. **Idempotence** : toute opération de sync doit pouvoir être rejouée sans effet de bord. Utiliser `event_id` comme clé de déduplication.
-2. **Acquittement après commit** : marquer un webhook comme traité uniquement après que l'état cible a été écrit.
-3. **`last_successful_sync_at`** : mise à jour uniquement après une sync complète et sans erreur. Jamais en début de cycle.
-4. **Signature webhook obligatoire** : rejeter tout webhook sans signature valide avant de l'insérer en queue.
+1. **Idempotency**: every sync operation must be replayable without side effects. Use `event_id` as the deduplication key.
+2. **Acknowledge after commit**: mark a webhook as processed only after the target state has been written.
+3. **`last_successful_sync_at`**: updated only after a complete, error-free sync. Never at the start of a cycle.
+4. **Webhook signature required**: reject any webhook without a valid signature before inserting it into the queue.
 
 ---
 
-## Conventions de code
+## Code conventions
 
-- Python 3.11+, type hints partout.
-- `ruff` pour le linting, `black` pour le format — pas de configuration custom.
-- Pas de `print()` dans le code applicatif — utiliser `logging` avec des niveaux explicites.
-- Les exceptions métier héritent d'une classe de base `SyncError` (à définir dans `src/sync_engine/exceptions.py`).
-- Pas de `try/except Exception` silencieux — toujours logger ou re-raise.
+- Python 3.11+, type hints everywhere.
+- `ruff` for linting, `black` for formatting — no custom configuration.
+- No `print()` in application code — use `logging` with explicit levels.
+- Business exceptions inherit from a `SyncError` base class (to be defined in `src/sync_engine/exceptions.py`).
+- No silent `try/except Exception` — always log or re-raise.
 
 ---
 
 ## Tests
 
-- Framework : `pytest`
-- Un test par comportement, pas par fonction.
-- Les tests de webhook mockent la vérification de signature (ne pas dépendre de secrets en test).
-- Les tests de reconciliation mockent l'API REST (pas d'appels réseau en CI).
-- Nommage : `test_<ce_qui_est_testé>_<condition>_<comportement_attendu>`.
+- Framework: `pytest`
+- One test per behavior, not per function.
+- Webhook tests mock signature verification (do not depend on secrets in tests).
+- Reconciliation tests mock the REST API (no network calls in CI).
+- Naming: `test_<what_is_tested>_<condition>_<expected_behavior>`.
 
 ---
 
 ## ADRs
 
-- Répertoire : `docs/adr/`
-- Format : `ADR-NNN-titre-court.md`
-- Numérotation séquentielle, pas de réutilisation.
-- Statuts valides : `Proposé` | `Accepté` | `Déprécié` | `Remplacé par ADR-NNN`
-- Un ADR ne se modifie pas après acceptation — on crée un ADR de remplacement.
+- Directory: `docs/adr/`
+- Format: `ADR-NNN-short-title.md`
+- Sequential numbering, no reuse.
+- Valid statuses: `Proposed` | `Accepted` | `Deprecated` | `Superseded by ADR-NNN`
+- An ADR is not modified after acceptance — create a superseding ADR instead.
 
 ---
 
 ## Git
 
-- Branche de développement courante : `claude/sync-engine-bootstrap-wkdEx`
-- Messages de commit en anglais, impératif, sans point final.
-- Format : `<type>: <description>` — types : `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
-- Ne pas committer de secrets, de fichiers `.env`, ou de tokens.
+- Current development branch: `claude/sync-engine-bootstrap-wkdEx`
+- Commit messages in English, imperative mood, no trailing period.
+- Format: `<type>: <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
+- Do not commit secrets, `.env` files, or tokens.

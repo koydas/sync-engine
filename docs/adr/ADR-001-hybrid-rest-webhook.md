@@ -1,111 +1,111 @@
-# ADR-001 — Architecture hybride REST/webhook pour la synchronisation
+# ADR-001 — Hybrid REST/webhook architecture for synchronization
 
-**Statut** : Accepté  
-**Date** : 2026-06-07  
-**Décideurs** : équipe fullstack-pilot
-
----
-
-## Contexte
-
-Le moteur de sync doit maintenir la cohérence des données entre plusieurs services (`fullstack-pilot` et ses intégrations tierces). Trois approches architecturales ont été évaluées :
-
-1. **Full polling** — le moteur interroge périodiquement chaque source via REST.
-2. **Full event-driven** — le moteur ne réagit qu'aux webhooks émis par les sources.
-3. **Hybride REST/webhook** — les deux canaux coexistent avec des rôles distincts.
+**Status**: Accepted  
+**Date**: 2026-06-07  
+**Deciders**: fullstack-pilot team
 
 ---
 
-## Décision
+## Context
 
-Nous adoptons l'architecture **hybride REST/webhook**.
+The sync engine must maintain data consistency across multiple services (`fullstack-pilot` and its third-party integrations). Three architectural approaches were evaluated:
 
----
-
-## Pourquoi pas full polling
-
-Le polling pur pose trois problèmes non acceptables en production :
-
-- **Latence structurelle** : un changement n'est visible qu'au prochain cycle ; avec un intervalle de 60 s, la fenêtre de désynchronisation est garantie.
-- **Charge inutile** : les requêtes sont émises même quand rien n'a changé. À l'échelle, cela génère du trafic et de la charge côté API tiers sans valeur ajoutée.
-- **Rate limiting** : les APIs tierces plafonnent les appels. Un polling agressif consomme le quota, bloquant les opérations critiques.
+1. **Full polling** — the engine periodically queries each source via REST.
+2. **Full event-driven** — the engine only reacts to webhooks emitted by sources.
+3. **Hybrid REST/webhook** — both channels coexist with distinct roles.
 
 ---
 
-## Pourquoi pas full event-driven
+## Decision
 
-Le mode purement webhook pose des problèmes de fiabilité fondamentaux :
-
-- **Pas de garantie de livraison** : les webhooks sont fire-and-forget côté émetteur. Une interruption réseau, un redémarrage du récepteur, ou une indisponibilité temporaire fait silencieusement disparaître des événements.
-- **Pas de snapshot initial** : au démarrage ou après une reprise, il n'existe aucun moyen de reconstruire l'état courant sans interroger la source via REST.
-- **Pas d'ordre garanti** : un webhook `updated` peut arriver avant le `created` correspondant. Sans reconciliation, l'état local devient incohérent.
-- **Opacité des gaps** : si le moteur est offline pendant 30 minutes, il ne sait pas combien d'événements il a manqués ni lesquels.
+We adopt the **hybrid REST/webhook** architecture.
 
 ---
 
-## Architecture hybride : rôles de chaque canal
+## Why not full polling
 
-### Webhook — canal temps réel (lead par défaut)
+Pure polling introduces three unacceptable production problems:
 
-Le webhook est le **canal primaire** pour la propagation des changements.
+- **Structural latency**: a change is only visible at the next cycle; with a 60s interval, a desync window is guaranteed.
+- **Wasted load**: requests are fired even when nothing changed. At scale, this generates traffic and third-party API load with no value.
+- **Rate limiting**: third-party APIs cap call rates. Aggressive polling burns the quota, blocking critical operations.
 
-| Responsabilité | Détail |
+---
+
+## Why not full event-driven
+
+Webhook-only mode has fundamental reliability problems:
+
+- **No delivery guarantee**: webhooks are fire-and-forget on the sender side. A network blip, receiver restart, or temporary unavailability silently drops events.
+- **No initial snapshot**: at startup or after recovery, there is no way to reconstruct current state without querying the source via REST.
+- **No ordering guarantee**: an `updated` webhook may arrive before its corresponding `created`. Without reconciliation, local state becomes inconsistent.
+- **Opaque gaps**: if the engine is offline for 30 minutes, it has no way to know how many events it missed or which ones.
+
+---
+
+## Hybrid architecture: role of each channel
+
+### Webhook — real-time channel (default lead)
+
+The webhook is the **primary channel** for change propagation.
+
+| Responsibility | Detail |
 |---|---|
-| Changements unitaires | Création, mise à jour, suppression d'une ressource |
-| Faible latence | Propagation < 2 s dans le cas nominal |
-| Déclencheur de reconciliation | Un webhook manqué déclenche un poll ciblé |
+| Unit changes | Resource creation, update, deletion |
+| Low latency | Propagation < 2s on the nominal path |
+| Reconciliation trigger | A missed webhook triggers a targeted poll |
 
-Le moteur ne fait confiance à un webhook que si sa signature est vérifiée et si son `event_id` n'a pas déjà été traité (idempotence).
+The engine only trusts a webhook if its signature is verified and its `event_id` has not already been processed (idempotency).
 
-### REST — canal de vérité (lead lors des transitions d'état)
+### REST — truth channel (lead during state transitions)
 
-Le REST est le **canal de récupération et de bootstrap**.
+REST is the **recovery and bootstrap channel**.
 
-| Responsabilité | Détail |
+| Responsibility | Detail |
 |---|---|
-| Snapshot initial | Chargement complet à la première connexion ou après une reprise |
-| Reconciliation périodique | Poll léger sur `updated_since` toutes les N minutes |
-| Gap fill | Après une panne, le moteur calcule la fenêtre manquée et effectue un poll ciblé |
-| Source de vérité | En cas de conflit entre état local et payload webhook, le REST arbitre |
+| Initial snapshot | Full load on first connection or after recovery |
+| Periodic reconciliation | Light poll on `updated_since` every N minutes |
+| Gap fill | After an outage, the engine computes the missed window and performs a targeted poll |
+| Source of truth | In case of conflict between local state and webhook payload, REST arbitrates |
 
 ---
 
-## Récupération après échec webhook
+## Recovery after webhook failure
 
-Trois scénarios de panne sont couverts :
+Three failure scenarios are covered:
 
-### Scénario 1 — Webhook non reçu (perte réseau courte)
+### Scenario 1 — Webhook not received (short network loss)
 
-La reconciliation périodique (`updated_since = last_sync_at`) détecte les changements manqués dans la fenêtre suivante. Tolérance maximale : intervalle de reconciliation (cible : 5 min).
+Periodic reconciliation (`updated_since = last_sync_at`) detects missed changes in the next window. Maximum tolerance: reconciliation interval (target: 5 min).
 
-### Scénario 2 — Récepteur hors ligne (panne prolongée)
+### Scenario 2 — Receiver offline (extended outage)
 
-Au redémarrage, le moteur lit `last_successful_sync_at` depuis son store persistant, calcule le delta temporel, et effectue un poll REST `updated_since = last_successful_sync_at`. Les ressources modifiées pendant la panne sont réintégrées avant de ré-ouvrir le canal webhook.
+On restart, the engine reads `last_successful_sync_at` from its persistent store, computes the time delta, and performs a REST poll `updated_since = last_successful_sync_at`. Resources modified during the outage are reintegrated before the webhook channel is reopened.
 
-### Scénario 3 — Webhook reçu mais non traité (crash en cours de processing)
+### Scenario 3 — Webhook received but not processed (crash mid-processing)
 
-Les webhooks entrants sont d'abord écrits dans une queue persistante (at-least-once delivery). Le processing ne marque l'événement comme traité qu'après commit en base. Un worker de reprise réexécute les entrées non acquittées au démarrage.
-
----
-
-## Conséquences
-
-**Positives :**
-- Latence proche du temps réel sur le chemin nominal.
-- Résilience garantie : aucun changement ne peut être définitivement perdu.
-- Le polling est light (delta uniquement), pas full-scan.
-
-**Négatives / coûts acceptés :**
-- Deux chemins de code à maintenir (webhook handler + reconciliation loop).
-- Idempotence obligatoire sur toutes les opérations de sync (un même changement peut arriver deux fois).
-- Nécessité d'un store persistant pour `last_successful_sync_at` et la queue de webhooks.
+Incoming webhooks are first written to a persistent queue (at-least-once delivery). Processing marks an event as handled only after it has been committed to the store. A recovery worker replays unacknowledged entries at startup.
 
 ---
 
-## Alternatives rejetées
+## Consequences
 
-| Alternative | Raison du rejet |
+**Positive:**
+- Near-real-time latency on the nominal path.
+- Guaranteed resilience: no change can be permanently lost.
+- Polling is light (delta only), not full-scan.
+
+**Negative / accepted costs:**
+- Two code paths to maintain (webhook handler + reconciliation loop).
+- Idempotency required on all sync operations (the same change may arrive twice).
+- A persistent store is required for `last_successful_sync_at` and the webhook queue.
+
+---
+
+## Rejected alternatives
+
+| Alternative | Reason for rejection |
 |---|---|
-| Message broker (Kafka, SQS) | Sur-ingénierie pour le périmètre actuel ; complexité opérationnelle disproportionnée |
-| CDC (Change Data Capture) | Requiert un accès direct aux bases des services tiers — non disponible |
-| Long polling | Compromis des deux pires mondes : charge du polling + complexité de gestion des connexions |
+| Message broker (Kafka, SQS) | Over-engineering for current scope; disproportionate operational complexity |
+| CDC (Change Data Capture) | Requires direct database access to third-party services — not available |
+| Long polling | Worst-of-both-worlds compromise: polling load + connection management complexity |
