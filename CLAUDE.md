@@ -47,11 +47,17 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 
 ## Tests
 
-- Framework: `pytest`
+**Every new module must ship with tests. A feature without a test file is not done.**
+
+Full guide: [docs/testing.md](docs/testing.md).
+
+- Framework: `pytest` — run with `pytest` from the repo root.
+- Test files mirror the source tree: `src/sync_engine/store/base.py` → `tests/store/test_*.py`.
 - One test per behavior, not per function.
-- Webhook tests mock signature verification (do not depend on secrets in tests).
-- Reconciliation tests mock the REST API (no network calls in CI).
 - Naming: `test_<what_is_tested>_<condition>_<expected_behavior>`.
+- Webhook tests mock signature verification (never depend on secrets).
+- Reconciliation tests mock the REST API (no network calls in CI).
+- Use `InMemoryStore` as the store fixture — never a real backend.
 
 ---
 
