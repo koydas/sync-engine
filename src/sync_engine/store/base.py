@@ -28,5 +28,5 @@ class SyncStore(ABC):
         """Persist a webhook payload before processing begins (at-least-once delivery)."""
 
     @abstractmethod
-    def dequeue_unacknowledged(self) -> list[dict]:
-        """Return all enqueued webhooks that have not yet been marked processed."""
+    def dequeue_unacknowledged(self) -> list[tuple[str, dict]]:
+        """Return (event_id, payload) pairs for every queued webhook not yet marked processed."""

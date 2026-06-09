@@ -26,9 +26,9 @@ class InMemoryStore(SyncStore):
     def enqueue_webhook(self, event_id: str, payload: dict) -> None:
         self._queue[event_id] = payload
 
-    def dequeue_unacknowledged(self) -> list[dict]:
+    def dequeue_unacknowledged(self) -> list[tuple[str, dict]]:
         return [
-            payload
+            (event_id, payload)
             for event_id, payload in self._queue.items()
             if event_id not in self._processed
         ]
