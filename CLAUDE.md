@@ -71,3 +71,13 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 - Commit messages in English, imperative mood, no trailing period.
 - Format: `<type>: <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Do not commit secrets, `.env` files, or tokens.
+
+---
+
+## PR review workflow
+
+After pushing a PR branch:
+
+1. Read all open review threads (`get_review_comments`).
+2. For each thread: apply the fix, reply with the commit SHA and a one-line explanation, then resolve the thread.
+3. Once all threads are resolved, post `@codex review` as a top-level PR comment to trigger a follow-up automated review.
