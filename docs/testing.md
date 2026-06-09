@@ -21,7 +21,8 @@ tests/
 ├── store/
 │   └── test_memory_store.py
 ├── webhook/
-│   └── test_handler.py        # (upcoming)
+│   ├── test_verifier.py
+│   └── test_handler.py
 ├── reconciliation/
 │   └── test_loop.py           # (upcoming)
 └── processor/
@@ -71,15 +72,25 @@ def store() -> InMemoryStore:
 
 ### Webhook signature verification
 
-Never depend on real secrets in tests. Patch the verification call:
+`verify_hmac_sha256` is a pure function with no side effects — test it directly
+by computing the expected HMAC with a fixture secret. No mocking needed:
 
 ```python
-from unittest.mock import patch
+import hashlib, hmac
+from sync_engine.webhook.verifier import verify_hmac_sha256
 
-def test_valid_webhook_is_queued(store):
-    with patch("sync_engine.webhook.handler.verify_signature", return_value=True):
-        ...
+SECRET = "test-secret"
+PAYLOAD = b'{"event": "push"}'
+
+def _sig(payload: bytes = PAYLOAD, secret: str = SECRET) -> str:
+    return hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+
+def test_valid_signature_raises_nothing() -> None:
+    verify_hmac_sha256(PAYLOAD, _sig(), SECRET)  # must not raise
 ```
+
+Mock `verify_hmac_sha256` only when testing higher-level code (e.g. an HTTP
+layer) that would otherwise require wiring a valid secret end-to-end.
 
 ### REST API (reconciliation)
 
