@@ -63,6 +63,29 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 - Valid statuses: `Proposed` | `Accepted` | `Deprecated` | `Superseded by ADR-NNN`
 - An ADR is not modified after acceptance — create a superseding ADR instead.
 
+### When to write a new ADR
+
+After every implementation session, ask: *did this introduce an architectural decision not covered by an existing ADR?*
+
+Write a new ADR when the decision:
+- Chooses between two or more structurally different approaches (e.g. abstract interface vs. concrete dependency, REST vs. event-driven).
+- Has cross-cutting consequences — it constrains how multiple packages or future implementations must behave.
+- Would be non-obvious to reverse without touching many files.
+
+Do **not** write an ADR for:
+- Code conventions already documented in this file (exception hierarchy, naming, formatting).
+- Single-file implementation choices with no downstream constraints.
+- Bug fixes or adjustments to existing decisions.
+
+If a new implementation *contradicts* an existing ADR, the new ADR must reference it with status `Superseded by ADR-NNN`.
+
+### Current ADR index
+
+| ADR | Title | Status |
+|---|---|---|
+| [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
+| [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
+
 ---
 
 ## Git
