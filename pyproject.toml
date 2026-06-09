@@ -9,6 +9,10 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "httpx",
+]
+
+[project.optional-dependencies]
+dev = [
     "pytest",
     "ruff",
     "black",
