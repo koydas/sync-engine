@@ -47,11 +47,17 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 
 ## Tests
 
-- Framework: `pytest`
+**Every new module must ship with tests. A feature without a test file is not done.**
+
+Full guide: [docs/testing.md](docs/testing.md).
+
+- Framework: `pytest` — run with `pytest` from the repo root.
+- Test files mirror the source tree: `src/sync_engine/store/base.py` → `tests/store/test_*.py`.
 - One test per behavior, not per function.
-- Webhook tests mock signature verification (do not depend on secrets in tests).
-- Reconciliation tests mock the REST API (no network calls in CI).
 - Naming: `test_<what_is_tested>_<condition>_<expected_behavior>`.
+- Webhook tests mock signature verification (never depend on secrets).
+- Reconciliation tests mock the REST API (no network calls in CI).
+- Use `InMemoryStore` as the store fixture — never a real backend.
 
 ---
 
@@ -63,6 +69,29 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 - Valid statuses: `Proposed` | `Accepted` | `Deprecated` | `Superseded by ADR-NNN`
 - An ADR is not modified after acceptance — create a superseding ADR instead.
 
+### When to write a new ADR
+
+After every implementation session, ask: *did this introduce an architectural decision not covered by an existing ADR?*
+
+Write a new ADR when the decision:
+- Chooses between two or more structurally different approaches (e.g. abstract interface vs. concrete dependency, REST vs. event-driven).
+- Has cross-cutting consequences — it constrains how multiple packages or future implementations must behave.
+- Would be non-obvious to reverse without touching many files.
+
+Do **not** write an ADR for:
+- Code conventions already documented in this file (exception hierarchy, naming, formatting).
+- Single-file implementation choices with no downstream constraints.
+- Bug fixes or adjustments to existing decisions.
+
+If a new implementation *contradicts* an existing ADR, the new ADR must reference it with status `Superseded by ADR-NNN`.
+
+### Current ADR index
+
+| ADR | Title | Status |
+|---|---|---|
+| [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
+| [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
+
 ---
 
 ## Git
@@ -71,3 +100,13 @@ Each package has a single responsibility. Do not let reconciliation logic bleed 
 - Commit messages in English, imperative mood, no trailing period.
 - Format: `<type>: <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Do not commit secrets, `.env` files, or tokens.
+
+---
+
+## PR review workflow
+
+After pushing a PR branch:
+
+1. Read all open review threads (`get_review_comments`).
+2. For each thread: apply the fix, reply with the commit SHA and a one-line explanation, then resolve the thread.
+3. Once all threads are resolved, post `@codex review` as a top-level PR comment to trigger a follow-up automated review.

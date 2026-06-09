@@ -1,5 +1,7 @@
 # sync-engine
 
+[![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
+
 Hybrid REST/webhook sync engine — push/pull coordination, idempotent processing, and failure recovery. Extracted from production integration patterns of `fullstack-pilot`.
 
 ---
