@@ -46,6 +46,17 @@ def test_duplicate_event_raises_and_not_reenqueued(
     assert store.dequeue_unacknowledged() == []
 
 
+def test_duplicate_event_already_queued_raises_and_does_not_overwrite(
+    store: InMemoryStore, handler: WebhookHandler
+) -> None:
+    handler.handle(EVENT_ID, PAYLOAD, RAW, _sig())
+
+    with pytest.raises(DuplicateEventError):
+        handler.handle(EVENT_ID, PAYLOAD, RAW, _sig())
+
+    assert store.dequeue_unacknowledged() == [(EVENT_ID, PAYLOAD)]
+
+
 def test_bad_signature_raises_and_not_enqueued(
     store: InMemoryStore, handler: WebhookHandler
 ) -> None:

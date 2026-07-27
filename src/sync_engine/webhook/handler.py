@@ -32,4 +32,12 @@ class WebhookHandler:
             logger.debug("Duplicate event received, skipping: %s", event_id)
             raise DuplicateEventError(f"Event already processed: {event_id}")
 
+        already_queued = any(
+            queued_id == event_id
+            for queued_id, _ in self._store.dequeue_unacknowledged()
+        )
+        if already_queued:
+            logger.debug("Duplicate event already queued, skipping: %s", event_id)
+            raise DuplicateEventError(f"Event already queued: {event_id}")
+
         self._store.enqueue_webhook(event_id, payload)
