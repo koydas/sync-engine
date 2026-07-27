@@ -1,6 +1,6 @@
 import logging
 
-from sync_engine.exceptions import DuplicateEventError, WebhookSignatureError
+from sync_engine.exceptions import DuplicateEventError
 from sync_engine.store.base import SyncStore
 from sync_engine.webhook.verifier import verify_hmac_sha256
 
@@ -25,11 +25,8 @@ class WebhookHandler:
             WebhookSignatureError: signature missing or invalid (logged at WARNING).
             DuplicateEventError: event_id already processed (logged at DEBUG).
         """
-        try:
-            verify_hmac_sha256(raw_bytes, signature_header, self._secret)
-        except WebhookSignatureError:
-            # verify_hmac_sha256 already logs at WARNING
-            raise
+        # verify_hmac_sha256 already logs at WARNING and raises WebhookSignatureError
+        verify_hmac_sha256(raw_bytes, signature_header, self._secret)
 
         if self._store.is_event_processed(event_id):
             logger.debug("Duplicate event received, skipping: %s", event_id)
