@@ -42,11 +42,12 @@ sync-engine/
 │   └── adr/                    # Architecture Decision Records
 │       └── ADR-001-hybrid-rest-webhook.md
 ├── src/
-│   └── sync_engine/            # main package (upcoming)
-│       ├── webhook/            # webhook reception and verification
-│       ├── reconciliation/     # REST polling loop
-│       ├── processor/          # idempotent event processing
-│       └── store/              # sync state persistence
+│   └── sync_engine/
+│       ├── app.py               # FastAPI app: /health, /webhooks
+│       ├── webhook/             # webhook reception and verification
+│       ├── reconciliation/      # REST polling loop (upcoming)
+│       ├── processor/           # idempotent event processing (upcoming)
+│       └── store/               # sync state persistence
 ├── tests/
 ├── CLAUDE.md
 └── README.md
@@ -59,6 +60,8 @@ sync-engine/
 | ADR | Decision | Status |
 |-----|----------|--------|
 | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
+| [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
+| [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 signature verification for webhook reception | Accepted |
 
 ---
 
@@ -80,7 +83,7 @@ Services from `fullstack-pilot` — details added to `src/` as implementations l
 ## Development
 
 ```bash
-# setup (upcoming)
+# setup
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 

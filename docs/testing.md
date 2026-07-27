@@ -18,6 +18,7 @@ Tests mirror the source tree under `tests/`:
 ```
 tests/
 ├── test_exceptions.py
+├── test_app.py
 ├── store/
 │   └── test_memory_store.py
 ├── webhook/
