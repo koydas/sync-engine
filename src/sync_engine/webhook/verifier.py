@@ -7,7 +7,9 @@ from sync_engine.exceptions import WebhookSignatureError
 logger = logging.getLogger(__name__)
 
 
-def verify_hmac_sha256(payload_bytes: bytes, signature_header: str, secret: str) -> None:
+def verify_hmac_sha256(
+    payload_bytes: bytes, signature_header: str, secret: str
+) -> None:
     """Verify the HMAC-SHA256 signature of a webhook payload.
 
     Raises WebhookSignatureError if the header is missing or the signature does
