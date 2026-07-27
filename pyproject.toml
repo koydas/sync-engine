@@ -9,6 +9,7 @@ requires-python = ">=3.11"
 dependencies = [
     "fastapi",
     "httpx",
+    "uvicorn[standard]",
 ]
 
 [project.optional-dependencies]
