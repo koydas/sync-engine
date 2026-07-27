@@ -24,5 +24,7 @@ def test_reconciliation_error_caught_as_sync_error():
 
 
 def test_sync_error_caught_as_base_exception():
-    with pytest.raises(Exception):
+    # Deliberately blind: verifies SyncError stays catchable by a bare
+    # `except Exception` handler elsewhere in the codebase.
+    with pytest.raises(Exception):  # noqa: B017
         raise SyncError("base error")

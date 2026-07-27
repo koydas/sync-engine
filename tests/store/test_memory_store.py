@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,14 +15,14 @@ def test_get_last_sync_at_before_any_write_returns_none(store):
 
 
 def test_set_last_sync_at_get_returns_same_value(store):
-    dt = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    dt = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
     store.set_last_sync_at(dt)
     assert store.get_last_sync_at() == dt
 
 
 def test_set_last_sync_at_overwrites_previous_value(store):
-    first = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    second = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    first = datetime(2026, 1, 1, tzinfo=UTC)
+    second = datetime(2026, 6, 1, tzinfo=UTC)
     store.set_last_sync_at(first)
     store.set_last_sync_at(second)
     assert store.get_last_sync_at() == second

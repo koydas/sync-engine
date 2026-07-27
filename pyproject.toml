@@ -14,8 +14,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "ruff",
-    "black",
+    "ruff==0.16.0",
+    "black==26.5.1",
 ]
 
 [tool.hatch.build.targets.wheel]

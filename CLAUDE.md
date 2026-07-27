@@ -55,7 +55,7 @@ Full guide: [docs/testing.md](docs/testing.md).
 - Test files mirror the source tree: `src/sync_engine/store/base.py` → `tests/store/test_*.py`.
 - One test per behavior, not per function.
 - Naming: `test_<what_is_tested>_<condition>_<expected_behavior>`.
-- Webhook tests mock signature verification (never depend on secrets).
+- Webhook tests compute real HMAC signatures with a fixture secret — do not mock `verify_hmac_sha256` unless testing the handler in isolation from the verifier. Never hard-code production secrets.
 - Reconciliation tests mock the REST API (no network calls in CI).
 - Use `InMemoryStore` as the store fixture — never a real backend.
 
@@ -91,12 +91,13 @@ If a new implementation *contradicts* an existing ADR, the new ADR must referenc
 |---|---|---|
 | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
 | [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
+| [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 signature verification for webhook reception | Accepted |
 
 ---
 
 ## Git
 
-- Current development branch: `claude/sync-engine-bootstrap-wkdEx`
+- Current development branch: `claude/webhook-verifier-handler-eked86`
 - Commit messages in English, imperative mood, no trailing period.
 - Format: `<type>: <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Do not commit secrets, `.env` files, or tokens.
