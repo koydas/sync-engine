@@ -92,6 +92,7 @@ If a new implementation *contradicts* an existing ADR, the new ADR must referenc
 | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
 | [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
 | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 signature verification for webhook reception | Accepted |
+| [ADR-004](docs/adr/ADR-004-queue-based-boundary-transport.md) | Queue-based transport for cross-boundary ingestion and propagation | Accepted |
 
 ---
 
