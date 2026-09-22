@@ -64,6 +64,26 @@ def test_fetch_changes_repeated_cursor_raises_reconciliation_error() -> None:
         list(_source(handler).fetch_changes(None))
 
 
+@pytest.mark.parametrize(
+    "cursor",
+    [False, {}, [], "", 0, 42],
+    ids=["false", "empty-object", "empty-list", "empty-string", "zero", "int"],
+)
+def test_fetch_changes_malformed_cursor_raises_reconciliation_error(cursor) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"items": [ITEM], "next_cursor": cursor})
+
+    with pytest.raises(ReconciliationError, match="Malformed pagination cursor"):
+        list(_source(handler).fetch_changes(None))
+
+
+def test_fetch_changes_missing_cursor_key_ends_pagination() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"items": [ITEM]})
+
+    assert [c.resource_id for c in _source(handler).fetch_changes(None)] == ["r1"]
+
+
 def test_fetch_changes_http_error_status_raises_reconciliation_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503)

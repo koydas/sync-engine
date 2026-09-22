@@ -28,6 +28,8 @@ class RestChangeSource(ChangeSource):
 
     Expected contract: ``GET <path>?updated_since=<iso8601>&cursor=<c>`` returns
     ``{"items": [{"id", "updated_at", "deleted"?, "data"?}, ...], "next_cursor": str | null}``.
+    Only a null or absent ``next_cursor`` ends pagination; any other non-string
+    or empty value is rejected.
     ``updated_since`` is omitted for a full snapshot.
     """
 
@@ -56,8 +58,14 @@ class RestChangeSource(ChangeSource):
                     ) from exc
 
             cursor = body.get("next_cursor")
-            if not cursor:
+            if cursor is None:
                 return
+            # Anything else falsy or non-string is ambiguous: ending here would
+            # let the watermark advance past pages that were never fetched.
+            if not isinstance(cursor, str) or not cursor:
+                raise ReconciliationError(
+                    f"Malformed pagination cursor on {self._path}: {cursor!r}"
+                )
             if cursor in seen_cursors:
                 raise ReconciliationError(
                     f"Pagination cursor repeated on {self._path}: {cursor}"
