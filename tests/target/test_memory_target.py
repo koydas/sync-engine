@@ -79,5 +79,22 @@ def test_apply_tie_webhook_does_not_overwrite_authoritative(
     assert target.get("r1") == {"v": "rest"}
 
 
+def test_apply_tie_later_authoritative_read_overwrites_earlier_one(
+    target: InMemoryTarget,
+) -> None:
+    target.apply(_change(data={"v": "first-read"}, authoritative=True))
+
+    assert target.apply(_change(data={"v": "second-read"}, authoritative=True))
+    assert target.get("r1") == {"v": "second-read"}
+
+
+def test_apply_tie_identical_authoritative_read_is_noop(
+    target: InMemoryTarget,
+) -> None:
+    target.apply(_change(authoritative=True))
+
+    assert target.apply(_change(authoritative=True)) is False
+
+
 def test_get_unknown_resource_returns_none(target: InMemoryTarget) -> None:
     assert target.get("missing") is None

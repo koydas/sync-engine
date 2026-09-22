@@ -18,8 +18,11 @@ class SyncTarget(ABC):
         - Idempotent: applying the same change twice leaves the same state.
         - Last-writer-wins on ``updated_at``: a change older than the stored
           version is ignored, so out-of-order delivery cannot regress state.
-        - On an ``updated_at`` tie, an authoritative (REST) change overwrites a
-          non-authoritative one; otherwise the stored state is kept.
+        - On an ``updated_at`` tie, an authoritative (REST) change overwrites
+          any differing stored state — a webhook change or an earlier REST
+          read, since REST reads arrive in time order and the later one is the
+          fresher truth when the source's timestamp precision is coarse. A
+          non-authoritative change never overwrites on a tie.
         - Deletions are stored as tombstones carrying their ``updated_at`` so
           a late, older update cannot resurrect the resource.
         - Returns True only once the change is durably committed; returns
