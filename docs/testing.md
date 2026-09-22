@@ -18,15 +18,20 @@ Tests mirror the source tree under `tests/`:
 ```
 tests/
 ├── test_exceptions.py
+├── test_models.py
+├── test_engine.py
 ├── store/
 │   └── test_memory_store.py
+├── target/
+│   └── test_memory_target.py
 ├── webhook/
 │   ├── test_verifier.py
 │   └── test_handler.py
 ├── reconciliation/
-│   └── test_loop.py           # (upcoming)
+│   ├── test_source.py
+│   └── test_loop.py
 └── processor/
-    └── test_processor.py      # (upcoming)
+    └── test_processor.py
 ```
 
 Every new module in `src/sync_engine/<package>/` gets a matching test file

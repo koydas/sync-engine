@@ -19,7 +19,10 @@ src/sync_engine/
 ├── webhook/        # Reception, HMAC verification, queuing
 ├── reconciliation/ # REST loop, delta computation, gap fill
 ├── processor/      # Idempotent processing, deduplication by event_id
-└── store/          # Persistence: last_successful_sync_at, event queue
+├── store/          # Persistence: last_successful_sync_at, event queue
+├── target/         # Versioned, idempotent writes of synchronized state
+├── models.py       # Change — channel-neutral unit of synchronization
+└── engine.py       # Startup recovery order and periodic cycle wiring
 ```
 
 Each package has a single responsibility. Do not let reconciliation logic bleed into the webhook handler and vice versa.
@@ -92,12 +95,14 @@ If a new implementation *contradicts* an existing ADR, the new ADR must referenc
 | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
 | [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
 | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 signature verification for webhook reception | Accepted |
+| [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | Versioned, idempotent write contract for the sync target | Accepted |
+| [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | Reconciliation watermark and startup recovery order | Accepted |
 
 ---
 
 ## Git
 
-- Current development branch: `claude/webhook-verifier-handler-eked86`
+- Current development branch: `claude/cv-projects-validation-la6n6v`
 - Commit messages in English, imperative mood, no trailing period.
 - Format: `<type>: <description>` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Do not commit secrets, `.env` files, or tokens.

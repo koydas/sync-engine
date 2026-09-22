@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
 
-Hybrid REST/webhook sync engine — push/pull coordination, idempotent processing, and failure recovery. Extracted from production integration patterns of `fullstack-pilot`.
+Hybrid REST/webhook sync engine — push/pull coordination, idempotent processing, and failure recovery. Extracted from production integration patterns (queue-based POS ingestion, ERP ↔ SaaS synchronization).
 
 ---
 
@@ -39,14 +39,16 @@ Source (REST API / Webhook)
 ```
 sync-engine/
 ├── docs/
-│   └── adr/                    # Architecture Decision Records
-│       └── ADR-001-hybrid-rest-webhook.md
+│   └── adr/                    # Architecture Decision Records (ADR-001 → ADR-005)
 ├── src/
-│   └── sync_engine/            # main package (upcoming)
-│       ├── webhook/            # webhook reception and verification
-│       ├── reconciliation/     # REST polling loop
-│       ├── processor/          # idempotent event processing
-│       └── store/              # sync state persistence
+│   └── sync_engine/
+│       ├── webhook/            # HMAC verification, dedup guard, enqueue
+│       ├── processor/          # exactly-once apply per event_id, crash replay
+│       ├── reconciliation/     # REST source (cursor pagination) + watermark loop
+│       ├── target/             # versioned last-writer-wins writes, tombstones
+│       ├── store/              # sync bookkeeping: watermark, queue, processed ids
+│       ├── models.py           # Change — channel-neutral unit
+│       └── engine.py           # startup order: replay → gap fill → open webhooks
 ├── tests/
 ├── CLAUDE.md
 └── README.md
@@ -59,6 +61,10 @@ sync-engine/
 | ADR | Decision | Status |
 |-----|----------|--------|
 | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | Hybrid REST/webhook architecture | Accepted |
+| [ADR-002](docs/adr/ADR-002-pluggable-store-interface.md) | Pluggable store interface via abstract base class | Accepted |
+| [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 webhook signature verification | Accepted |
+| [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | Versioned, idempotent write contract for the sync target | Accepted |
+| [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | Reconciliation watermark and startup recovery order | Accepted |
 
 ---
 
@@ -71,9 +77,21 @@ sync-engine/
 
 ---
 
-## Target integrations
+## Wiring
 
-Services from `fullstack-pilot` — details added to `src/` as implementations land.
+```python
+store, target = MyStore(), MyTarget()          # implement SyncStore / SyncTarget
+engine = SyncEngine(
+    WebhookHandler(store, secret=WEBHOOK_SECRET),
+    SyncProcessor(store, target),
+    Reconciler(store, RestChangeSource(httpx.Client(base_url=API), "/resources"), target),
+)
+engine.start()                                  # replay queue, gap fill, then accept webhooks
+engine.receive(event_id, payload, raw_body, signature_header)   # from the HTTP layer
+engine.run_periodic(timedelta(minutes=5), stop_event)           # replay + reconcile each tick
+```
+
+The HTTP layer (FastAPI route) and production `SyncStore`/`SyncTarget` backends are not part of this package yet.
 
 ---
 
