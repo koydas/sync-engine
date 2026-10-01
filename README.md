@@ -2,7 +2,29 @@
 
 [![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
 
-Hybrid REST/webhook sync engine — push/pull coordination, idempotent processing, and failure recovery. Extracted from production integration patterns (queue-based POS ingestion, ERP ↔ SaaS synchronization).
+**Webhooks drop events. Polling is late. This engine assumes both and still converges.**
+
+A Python sync engine for keeping a local copy of a remote system's state: webhooks for real time, REST reconciliation for everything they miss, and a write contract that makes the two channels safe to overlap. Patterns extracted from production integrations (queue-based POS ingestion, ERP ↔ SaaS synchronization).
+
+## The failure modes it's built around
+
+Every integration eventually hits these. Each row is a decision record and a test, not a promise.
+
+| What goes wrong | What the engine does | Decided in | Proven by |
+|---|---|---|---|
+| The provider delivers the same webhook twice | Dedup by `event_id` before enqueue; a processed id is never applied again | [ADR-001](docs/adr/ADR-001-hybrid-rest-webhook.md) | `test_receive_redelivered_webhook_raises_duplicate` |
+| A webhook never arrives | Periodic REST reconciliation from a watermark fills the gap | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | `test_run_once_with_watermark_queries_since_watermark_minus_overlap` |
+| An older update arrives after a newer one | Versioned last-writer-wins on the source's `updated_at` | [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | `test_apply_older_change_after_newer_is_ignored` |
+| A late update resurrects a deleted record | Deletions are tombstones carrying their version | [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | `test_apply_older_update_after_delete_does_not_resurrect` |
+| Webhook and REST disagree at the same timestamp | Deterministic tie-break: the REST read is authoritative, a webhook never overwrites on a tie | [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | `test_apply_tie_*` (4 tests) |
+| Rows committed during a reconciliation cycle are skipped forever | Watermark = cycle **start**, re-queried with an overlap margin; safe because writes are idempotent | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | `test_run_once_success_advances_watermark_to_cycle_start`, `test_run_once_replayed_window_is_idempotent` |
+| A cycle fails halfway and the watermark moves anyway | The watermark only advances after every page and every write succeed; it never moves backwards | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | `test_run_once_fetch_failure_keeps_watermark_and_raises`, `test_run_once_clock_behind_watermark_does_not_move_it_backwards` |
+| The process crashes between write and acknowledgement | Ack after commit only; unacknowledged events are replayed at startup and on every tick | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | `test_receive_processing_failure_keeps_event_for_next_cycle` |
+| Webhooks are processed before the target has caught up after downtime | Startup order: replay queue → gap-fill → only then open the webhook channel | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | `test_start_replays_queue_then_reconciles_then_opens_channel` |
+| A paginated API loops on the same cursor | A repeated cursor aborts the cycle instead of spinning | — | `test_fetch_changes_repeated_cursor_raises_reconciliation_error` |
+| Someone forges a webhook | HMAC-SHA256, constant-time comparison, rejected before anything is queued | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | `test_receive_bad_signature_raises_and_queues_nothing` |
+
+87 tests, no network, in-memory store and target. Scope today: the engine core. The HTTP route and production `SyncStore` / `SyncTarget` backends are not part of the package yet (see [Wiring](#wiring)).
 
 ---
 
@@ -98,7 +120,7 @@ The HTTP layer (FastAPI route) and production `SyncStore`/`SyncTarget` backends 
 ## Development
 
 ```bash
-# setup (upcoming)
+# setup
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
