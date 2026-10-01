@@ -2,9 +2,11 @@
 
 [![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
 
-**Webhooks drop events. Polling is late. This engine assumes both and still converges.**
+**Webhooks drop events. Polling is late. This engine assumes both, and handles each failure mode below with a test to prove it.**
 
-A Python sync engine for keeping a local copy of a remote system's state: webhooks for real time, REST reconciliation for everything they miss, and a write contract that makes the two channels safe to overlap. Patterns extracted from production integrations (queue-based POS ingestion, ERP ↔ SaaS synchronization).
+A Python sync engine for keeping a local copy of a remote system's state: webhooks for real time, REST reconciliation for everything they miss, and a write contract that makes the two channels safe to overlap. The design draws on the author's experience with production integrations (queue-based POS ingestion, ERP ↔ SaaS synchronization).
+
+**Library core:** bring your own HTTP route and storage backends; the package ships in-memory implementations for tests. See [Wiring](#wiring).
 
 ## The failure modes it's built around
 
@@ -24,7 +26,7 @@ Every integration eventually hits these. Each row is a decision record and a tes
 | A paginated API loops on the same cursor | A repeated cursor aborts the cycle instead of spinning | — | `test_fetch_changes_repeated_cursor_raises_reconciliation_error` |
 | Someone forges a webhook | HMAC-SHA256, constant-time comparison, rejected before anything is queued | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | `test_receive_bad_signature_raises_and_queues_nothing` |
 
-87 tests, no network, in-memory store and target. Scope today: the engine core. The HTTP route and production `SyncStore` / `SyncTarget` backends are not part of the package yet (see [Wiring](#wiring)).
+87 tests, no network, in-memory store and target. Each test covers one failure mode in isolation; no test yet interleaves them under random schedules.
 
 ---
 
