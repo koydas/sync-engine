@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
 from sync_engine.engine import SyncEngine
@@ -188,6 +188,20 @@ def _restart(world: World, faulty: bool) -> None:
     suppress_health_check=[HealthCheck.too_slow],
 )
 @given(schedule=st.lists(step, max_size=60))
+# Found by review: an older webhook delivered after reconciliation has moved the watermark
+# past the resource. Too coordinated for uniform random search to hit reliably.
+@example(
+    schedule=[
+        ("update", 0, 0, False),
+        ("update", 0, 0, False),
+        ("deliver", 1, 0, False),
+        ("update", 1, 0, False),
+        ("update", 2, 0, False),
+        ("update", 1, 0, False),
+        ("reconcile", 0, 0, False),
+        ("deliver", 0, 0, False),
+    ]
+)
 def test_target_after_random_faults_and_final_cycle_converges_to_source(schedule):
     world = World()
     world.engine = world.build_engine()
@@ -215,6 +229,50 @@ def test_target_after_random_faults_and_final_cycle_converges_to_source(schedule
     world.engine = world.build_engine()
     world.clock.now += timedelta(seconds=1)
     world.engine.start()
+
+    for resource_id in RESOURCE_IDS:
+        expected = world.source.state.get(resource_id)
+        expected_data = None if expected is None or expected.deleted else expected.data
+        assert world.target.get(resource_id) == expected_data, resource_id
+    assert world.store.dequeue_unacknowledged() == []
+
+
+@settings(max_examples=300, deadline=None)
+@given(
+    data=st.data(),
+    mutations=st.lists(
+        st.tuples(
+            st.integers(min_value=0, max_value=len(RESOURCE_IDS) - 1), st.booleans()
+        ),
+        min_size=1,
+        max_size=30,
+    ),
+)
+def test_target_after_all_webhooks_in_any_order_without_reconcile_matches_source(
+    data, mutations
+):
+    """Webhook channel alone: no drops, no faults, no reconciliation after startup.
+
+    The final reconcile in the property above re-reads recent changes from the
+    source and can hide a bug confined to the webhook path (processor, dedup,
+    last-writer-wins). Here every event is delivered in a random order with
+    duplicates, and nothing else writes to the target.
+    """
+    world = World()
+    world.engine = world.build_engine()
+    world.engine.start()  # source is still empty: nothing to reconcile
+
+    for index, deleted in mutations:
+        _mutate(world, RESOURCE_IDS[index], lag_s=0, deleted=deleted)
+
+    duplicates = data.draw(st.lists(st.sampled_from(world.in_flight), max_size=10))
+    deliveries = data.draw(st.permutations(world.in_flight + duplicates))
+    for event_id, payload in deliveries:
+        raw = json.dumps(payload).encode()
+        try:
+            world.engine.receive(event_id, payload, raw, _sign(raw))
+        except DuplicateEventError:
+            pass
 
     for resource_id in RESOURCE_IDS:
         expected = world.source.state.get(resource_id)

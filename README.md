@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
 
-**Webhooks drop events. Polling is late. This engine assumes both and still converges — and a property-based test proves it.**
+**Webhooks drop events. Polling is late. This engine assumes both and converges — checked by property-based tests under random faults.**
 
 A Python sync engine for keeping a local copy of a remote system's state: webhooks for real time, REST reconciliation for everything they miss, and a write contract that makes the two channels safe to overlap. The design draws on the author's experience with production integrations (queue-based POS ingestion, ERP ↔ SaaS synchronization).
 
@@ -40,7 +40,14 @@ Every integration eventually hits these. Each row is a decision record and a tes
 | A paginated API loops on the same cursor | A repeated cursor aborts the cycle instead of spinning | — | `test_fetch_changes_repeated_cursor_raises_reconciliation_error` |
 | Someone forges a webhook | HMAC-SHA256, constant-time comparison, rejected before anything is queued | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | `test_receive_bad_signature_raises_and_queues_nothing` |
 
-89 tests, no network, in-memory store and target. Each row above has its own targeted test; on top of those, [`test_convergence.py`](tests/test_convergence.py) generates 300 random schedules per run that interleave dropped, duplicated and reordered webhooks, rows committed late within the overlap margin, REST and target failures and process restarts, then asserts that after one healthy cycle the target equals the source. Removing last-writer-wins, the overlap margin, or the cycle-start watermark each makes it fail.
+90 tests, no network, in-memory store and target. Each row above has its own targeted test. On top of those, [`test_convergence.py`](tests/test_convergence.py) checks two properties with `hypothesis` (300 random schedules each per run, plus pinned cases):
+
+- **Both channels:** dropped, duplicated and reordered webhooks, rows committed late within the overlap margin, REST and target failures and process restarts → after one healthy cycle, the target equals the source.
+- **Webhook channel alone:** every event delivered in a random order with duplicates, no reconciliation → the target equals the source, so the REST path cannot mask a webhook-path bug.
+
+Removing last-writer-wins, the overlap margin, or the cycle-start watermark makes them fail on every seed tried. Removing the handler's duplicate check does not, because the processor re-checks `event_id` and writes are idempotent: that check is defense in depth.
+
+**Assumption:** a source commit becomes visible to REST within the overlap margin (default 60 s, [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md)). The tests generate late commits only inside that margin; a row that surfaces later with an earlier `updated_at` can be missed.
 
 ---
 
