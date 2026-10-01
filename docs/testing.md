@@ -20,6 +20,8 @@ tests/
 ├── test_exceptions.py
 ├── test_models.py
 ├── test_engine.py
+├── test_convergence.py    # property-based, cross-channel (hypothesis)
+├── test_examples.py       # runs examples/*.py
 ├── store/
 │   └── test_memory_store.py
 ├── target/
@@ -125,6 +127,13 @@ For each new module, cover at minimum:
 | Idempotency | same `event_id` processed twice, second is a no-op |
 | Pre-condition violated | invalid signature → `WebhookSignatureError` raised |
 | State after failure | crash mid-processing → event still in `dequeue_unacknowledged` |
+
+**Cross-channel convergence.** `tests/test_convergence.py` is the one test
+that does not map to a single module: it uses `hypothesis` to generate random
+schedules of faults across both channels and asserts that the target equals
+the source after a healthy cycle. When you change ordering, watermark or
+idempotency logic, `pytest tests/test_convergence.py --hypothesis-seed=0`
+reproduces a run deterministically; raise `max_examples` locally to dig deeper.
 
 ---
 

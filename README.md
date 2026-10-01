@@ -2,11 +2,25 @@
 
 [![CI](https://github.com/koydas/sync-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/koydas/sync-engine/actions/workflows/ci.yml)
 
-**Webhooks drop events. Polling is late. This engine assumes both, and handles each failure mode below with a test to prove it.**
+**Webhooks drop events. Polling is late. This engine assumes both and still converges — and a property-based test proves it.**
 
 A Python sync engine for keeping a local copy of a remote system's state: webhooks for real time, REST reconciliation for everything they miss, and a write contract that makes the two channels safe to overlap. The design draws on the author's experience with production integrations (queue-based POS ingestion, ERP ↔ SaaS synchronization).
 
 **Library core:** bring your own HTTP route and storage backends; the package ships in-memory implementations for tests. See [Wiring](#wiring).
+
+**Try it** (Python ≥ 3.11, no network):
+
+```bash
+git clone https://github.com/koydas/sync-engine && cd sync-engine
+pip install -e .
+python examples/dropped_webhook.py
+```
+
+```
+after webhook 1:   {'status': 'paid'}
+webhook 2 dropped: {'status': 'paid'}
+after reconcile:   {'status': 'shipped'}
+```
 
 ## The failure modes it's built around
 
@@ -26,7 +40,7 @@ Every integration eventually hits these. Each row is a decision record and a tes
 | A paginated API loops on the same cursor | A repeated cursor aborts the cycle instead of spinning | — | `test_fetch_changes_repeated_cursor_raises_reconciliation_error` |
 | Someone forges a webhook | HMAC-SHA256, constant-time comparison, rejected before anything is queued | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | `test_receive_bad_signature_raises_and_queues_nothing` |
 
-87 tests, no network, in-memory store and target. Each test covers one failure mode in isolation; no test yet interleaves them under random schedules.
+89 tests, no network, in-memory store and target. Each row above has its own targeted test; on top of those, [`test_convergence.py`](tests/test_convergence.py) generates 300 random schedules per run that interleave dropped, duplicated and reordered webhooks, rows committed late within the overlap margin, REST and target failures and process restarts, then asserts that after one healthy cycle the target equals the source. Removing last-writer-wins, the overlap margin, or the cycle-start watermark each makes it fail.
 
 ---
 
