@@ -20,6 +20,8 @@ tests/
 ├── test_exceptions.py
 ├── test_models.py
 ├── test_engine.py
+├── test_convergence.py    # property-based convergence (hypothesis)
+├── test_examples.py       # runs examples/*.py
 ├── store/
 │   └── test_memory_store.py
 ├── target/
@@ -125,6 +127,15 @@ For each new module, cover at minimum:
 | Idempotency | same `event_id` processed twice, second is a no-op |
 | Pre-condition violated | invalid signature → `WebhookSignatureError` raised |
 | State after failure | crash mid-processing → event still in `dequeue_unacknowledged` |
+
+**Convergence properties.** `tests/test_convergence.py` does not map to a
+single module. It uses `hypothesis` for two properties: random fault schedules
+across both channels (target equals source after a healthy cycle), and the
+webhook channel alone with no reconciliation (so REST cannot mask a
+webhook-path bug). Schedules too coordinated for random search to hit are
+pinned with `@example`. When you change ordering, watermark or
+idempotency logic, `pytest tests/test_convergence.py --hypothesis-seed=0`
+reproduces a run deterministically; raise `max_examples` locally to dig deeper.
 
 ---
 
