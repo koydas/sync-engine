@@ -116,3 +116,11 @@ After pushing a PR branch:
 1. Read all open review threads (`get_review_comments`).
 2. For each thread: apply the fix, reply with the commit SHA and a one-line explanation, then resolve the thread.
 3. Once all threads are resolved, post `@codex review` as a top-level PR comment to trigger a follow-up automated review.
+
+## Toolbox — koydas/ai-dev-tools
+
+`.claude/settings.json` declares the `ai-dev-tools` plugin (trust the folder → install offered): `/ai-dev-tools:pr-review <n>`, `/ai-dev-tools:pr-fixer`, `/ai-dev-tools:issue-code-generation <n>`, `/ai-dev-tools:ac-check <n>`. Repo rules (this file, `.claude/skills/`) win over toolbox defaults.
+
+Cloud sessions (claude.ai/code) do not install repository-declared plugins: environment setup script in the ai-dev-tools README → "Use from another repository". Commands are then un-prefixed (`/pr-review`).
+
+Procedures in `.claude/skills/`: `new-adr`, `add-sync-module`.
