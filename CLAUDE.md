@@ -97,6 +97,7 @@ If a new implementation *contradicts* an existing ADR, the new ADR must referenc
 | [ADR-003](docs/adr/ADR-003-webhook-hmac-sha256-signature-verification.md) | HMAC-SHA256 signature verification for webhook reception | Accepted |
 | [ADR-004](docs/adr/ADR-004-versioned-target-write-contract.md) | Versioned, idempotent write contract for the sync target | Accepted |
 | [ADR-005](docs/adr/ADR-005-reconciliation-watermark-and-startup-order.md) | Reconciliation watermark and startup recovery order | Accepted |
+| [ADR-006](docs/adr/ADR-006-claude-code-toolbox-and-repo-skills.md) | Claude Code toolbox and repo-local skills | Accepted |
 
 ---
 
@@ -121,6 +122,6 @@ After pushing a PR branch:
 
 `.claude/settings.json` declares the `ai-dev-tools` plugin (trust the folder → install offered): `/ai-dev-tools:pr-review <n>`, `/ai-dev-tools:pr-fixer`, `/ai-dev-tools:issue-code-generation <n>`, `/ai-dev-tools:ac-check <n>`. Repo rules (this file, `.claude/skills/`) win over toolbox defaults.
 
-Cloud sessions (claude.ai/code) do not install repository-declared plugins: environment setup script in the ai-dev-tools README → "Use from another repository". Commands are then un-prefixed (`/pr-review`).
+Cloud sessions (claude.ai/code) do not install repository-declared plugins: environment setup script in the ai-dev-tools README → "Use from another repository". Commands are then un-prefixed (`/pr-review`). Details: [`docs/claude-code.md`](docs/claude-code.md).
 
 Procedures in `.claude/skills/`: `new-adr`, `add-sync-module`.
